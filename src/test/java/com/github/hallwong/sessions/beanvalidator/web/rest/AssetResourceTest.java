@@ -43,7 +43,8 @@ class AssetResourceTest {
 
     // then
     result.andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.detail", equalTo("The asset key is invalid.")));
+        .andExpect(jsonPath("$.violations[0].field", equalTo("list.key")))
+        .andExpect(jsonPath("$.violations[0].message", equalTo("The asset key is invalid.")));
   }
 
   @Test
@@ -75,7 +76,8 @@ class AssetResourceTest {
 
     // then
     result.andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.detail", equalTo("The asset key is invalid.")));
+        .andExpect(jsonPath("$.violations[0].field", equalTo("key")))
+        .andExpect(jsonPath("$.violations[0].message", equalTo("The asset key is invalid.")));
   }
 
   @Test
