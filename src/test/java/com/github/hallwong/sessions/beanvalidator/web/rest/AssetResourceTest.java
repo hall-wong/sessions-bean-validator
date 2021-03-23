@@ -47,6 +47,22 @@ class AssetResourceTest {
   }
 
   @Test
+  void should_return_bad_request_when_create_asset_given_null_key() throws Exception {
+    // given
+    RequestBuilder request = post("/assets")
+        .contentType(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8")
+        .content("{}");
+
+    // when
+    ResultActions result = mockMvc.perform(request).andDo(print());
+
+    // then
+    result.andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.detail", equalTo("The asset key must not be null.")));
+  }
+
+  @Test
   void should_return_bad_request_when_create_asset_given_invalid_key() throws Exception {
     // given
     RequestBuilder request = post("/assets")

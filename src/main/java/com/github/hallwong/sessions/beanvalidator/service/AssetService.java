@@ -6,6 +6,7 @@ import com.github.hallwong.sessions.beanvalidator.dto.request.AssetCreateRequest
 import com.github.hallwong.sessions.beanvalidator.dto.response.AssetResponse;
 import com.github.hallwong.sessions.beanvalidator.error.ExpirationDateEarlyThanEffectiveDateException;
 import com.github.hallwong.sessions.beanvalidator.error.InvalidAssetKeyException;
+import com.github.hallwong.sessions.beanvalidator.error.NullAssetKeyException;
 import com.github.hallwong.sessions.beanvalidator.error.NullEffectiveDateException;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -25,13 +26,17 @@ public class AssetService {
     return emptyList();
   }
 
-  public AssetResponse create(AssetCreateRequest request){
+  public AssetResponse create(AssetCreateRequest request) {
+    if (request.getKey() == null) {
+      throw new NullAssetKeyException();
+    }
     validateAssetKey(request.getKey());
 
-    if(request.getEffectiveDate() == null){
+    if (request.getEffectiveDate() == null) {
       throw new NullEffectiveDateException();
     }
-    if(request.getExpirationDate() != null && request.getExpirationDate().isBefore(request.getEffectiveDate())){
+    if (request.getExpirationDate() != null && request.getExpirationDate()
+        .isBefore(request.getEffectiveDate())) {
       throw new ExpirationDateEarlyThanEffectiveDateException();
     }
 
