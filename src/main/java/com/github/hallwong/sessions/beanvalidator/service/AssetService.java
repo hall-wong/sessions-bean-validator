@@ -29,42 +29,64 @@ public class AssetService {
 
   public List<AssetResponse> list(String key) {
     if (key != null && !key.trim().isEmpty()) {
-      Matcher matcher = ASSET_KEY_PATTERN.matcher(key);
-      if (!matcher.matches()) {
-        throw new InvalidAssetKeyException();
-      }
+      validateKey(key);
     }
     // implement of reading from the storage
     return emptyList();
   }
 
   public AssetResponse create(AssetCreateRequest request) {
-    if (request.getKey() == null) {
-      throw new NullAssetKeyException();
-    } else {
-      Matcher matcher = ASSET_KEY_PATTERN.matcher(request.getKey());
-      if (!matcher.matches()) {
-        throw new InvalidAssetKeyException();
-      }
-    }
+    validateNotNullKey(request.getKey());
+    validateKey(request.getKey());
+    validateWeight(request);
+    validateDates(request);
+    validateItems(request);
 
-    Double w = request.getW();
-    if (w != null) {
-      if (w > 450) {
+    // implement of writing to the storage
+    return AssetResponse.builder()
+        .key(request.getKey())
+        .name(request.getName())
+        .effectiveDate(request.getEffectiveDate())
+        .expirationDate(request.getExpirationDate())
+        .createdAt(System.currentTimeMillis())
+        .build();
+  }
+
+  private void validateKey(String key) {
+    Matcher matcher = ASSET_KEY_PATTERN.matcher(key);
+    if (!matcher.matches()) {
+      throw new InvalidAssetKeyException();
+    }
+  }
+
+  private void validateNotNullKey(String key) {
+    if (key == null) {
+      throw new NullAssetKeyException();
+    }
+  }
+
+  private void validateDates(AssetCreateRequest request) {
+    if (request.getEffectiveDate() == null) {
+      throw new NullEffectiveDateException();
+    } else if (request.getExpirationDate().isBefore(request.getEffectiveDate())) {
+      throw new ExpirationDateEarlyThanEffectiveDateException();
+    }
+  }
+
+  private void validateWeight(AssetCreateRequest request) {
+    Double weight = request.getWeight();
+    if (weight != null) {
+      if (weight > 450) {
         throw new TooHeavyException();
       }
-      String fractionPart = Double.toString(w).split("\\.")[1];
+      String fractionPart = Double.toString(weight).split("\\.")[1];
       if (fractionPart.length() > 2) {
         throw new NotValidDoubleException();
       }
     }
+  }
 
-    if (request.getE() == null) {
-      throw new NullEffectiveDateException();
-    } else if (request.getX().isBefore(request.getE())) {
-      throw new ExpirationDateEarlyThanEffectiveDateException();
-    }
-
+  private void validateItems(AssetCreateRequest request) {
     List<AssetItemCreateRequest> items = request.getItems();
     if (isEmpty(items)) {
       throw new EmptyItemsException();
@@ -85,15 +107,6 @@ public class AssetService {
         throw new BlankNameException();
       }
     }
-
-    // implement of writing to the storage
-    return AssetResponse.builder()
-        .key(request.getKey())
-        .name(request.getName())
-        .e(request.getE())
-        .x(request.getX())
-        .cat(System.currentTimeMillis())
-        .build();
   }
 
 }

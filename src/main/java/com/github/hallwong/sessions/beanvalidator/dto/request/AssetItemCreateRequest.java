@@ -5,8 +5,10 @@ import lombok.Data;
 @Data
 public class AssetItemCreateRequest {
 
+  // not null
   private Integer index;
 
+  // not blank
   private String name;
 
 }

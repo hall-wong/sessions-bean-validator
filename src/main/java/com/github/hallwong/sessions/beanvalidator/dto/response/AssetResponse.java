@@ -12,10 +12,10 @@ public class AssetResponse {
 
   private String name;
 
-  private LocalDate e;
+  private LocalDate effectiveDate;
 
-  private LocalDate x;
+  private LocalDate expirationDate;
 
-  private Long cat;
+  private Long createdAt;
 
 }
