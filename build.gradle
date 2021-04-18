@@ -21,6 +21,9 @@ dependencies {
     // error handling
     implementation("org.zalando:problem-spring-web:0.25.2")
 
+    // validation
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+
     // test
     testImplementation('org.springframework.boot:spring-boot-starter-test')
     testImplementation("org.junit.jupiter:junit-jupiter-api")
