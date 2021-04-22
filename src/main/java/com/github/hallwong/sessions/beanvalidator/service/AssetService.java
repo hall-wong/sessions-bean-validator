@@ -12,7 +12,6 @@ import com.github.hallwong.sessions.beanvalidator.error.EmptyItemsException;
 import com.github.hallwong.sessions.beanvalidator.error.ExpirationDateEarlyThanEffectiveDateException;
 import com.github.hallwong.sessions.beanvalidator.error.InvalidAssetKeyException;
 import com.github.hallwong.sessions.beanvalidator.error.NotValidDoubleException;
-import com.github.hallwong.sessions.beanvalidator.error.NullAssetKeyException;
 import com.github.hallwong.sessions.beanvalidator.error.NullEffectiveDateException;
 import com.github.hallwong.sessions.beanvalidator.error.NullIndexException;
 import com.github.hallwong.sessions.beanvalidator.error.TooHeavyException;
@@ -36,7 +35,6 @@ public class AssetService {
   }
 
   public AssetResponse create(AssetCreateRequest request) {
-    validateNotNullKey(request.getKey());
     validateKey(request.getKey());
     validateWeight(request);
     validateDates(request);
@@ -56,12 +54,6 @@ public class AssetService {
     Matcher matcher = ASSET_KEY_PATTERN.matcher(key);
     if (!matcher.matches()) {
       throw new InvalidAssetKeyException();
-    }
-  }
-
-  private void validateNotNullKey(String key) {
-    if (key == null) {
-      throw new NullAssetKeyException();
     }
   }
 

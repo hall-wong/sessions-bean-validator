@@ -2,11 +2,13 @@ package com.github.hallwong.sessions.beanvalidator.dto.request;
 
 import java.time.LocalDate;
 import java.util.List;
+import javax.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
 public class AssetCreateRequest {
 
+  @NotNull(message = "The asset key must not be null.")
   private String key;
 
   private String name;

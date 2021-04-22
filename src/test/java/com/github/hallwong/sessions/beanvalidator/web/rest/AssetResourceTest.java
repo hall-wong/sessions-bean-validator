@@ -45,4 +45,19 @@ class AssetResourceTest {
     result.andExpect(status().isBadRequest());
   }
 
+  @Test
+  void when_create_asset_should_return_bad_request_given_not_valid_key() throws Exception {
+    // given
+    RequestBuilder request = post("/assets")
+        .contentType(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8")
+        .content("{\"key\": \"T-123\"}");
+
+    // when
+    ResultActions result = mockMvc.perform(request).andDo(print());
+
+    // then
+    result.andExpect(status().isBadRequest());
+  }
+
 }
