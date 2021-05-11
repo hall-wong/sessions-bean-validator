@@ -1,5 +1,6 @@
 package com.github.hallwong.sessions.beanvalidator.web.rest;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,6 +53,84 @@ class AssetResourceTest {
         .contentType(MediaType.APPLICATION_JSON)
         .characterEncoding("UTF-8")
         .content("{\"key\": \"T-123\"}");
+
+    // when
+    ResultActions result = mockMvc.perform(request).andDo(print());
+
+    // then
+    result.andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void when_create_asset_should_return_bad_request_given_500_weight() throws Exception {
+    // given
+    RequestBuilder request = post("/assets")
+        .contentType(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8")
+        .content("{\"key\": \"DSC-1323\", \"weight\": 500}");
+
+    // when
+    ResultActions result = mockMvc.perform(request).andDo(print());
+
+    // then
+    result.andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void when_create_asset_should_return_bad_request_given_3_digit_weight() throws Exception {
+    // given
+    RequestBuilder request = post("/assets")
+        .contentType(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8")
+        .content("{\"key\": \"DSC-1323\", \"weight\": 123.232}");
+
+    // when
+    ResultActions result = mockMvc.perform(request).andDo(print());
+
+    // then
+    result.andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void when_create_asset_should_return_bad_request_given_exp_date_before_eff_date()
+      throws Exception {
+    // given
+    RequestBuilder request = post("/assets")
+        .contentType(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8")
+        .content(
+            "{\"key\": \"DSC-1323\", \"effectiveDate\": \"2020-12-21\", \"expirationDate\": \"2011-12-21\"}");
+
+    // when
+    ResultActions result = mockMvc.perform(request).andDo(print());
+
+    // then
+    result.andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void when_create_asset_should_return_ok_given_exp_date_not_before_eff_date()
+      throws Exception {
+    // given
+    RequestBuilder request = post("/assets")
+        .contentType(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8")
+        .content(
+            "{\"key\": \"DSC-1323\", \"effectiveDate\": \"2020-12-21\", \"expirationDate\": \"2020-12-21\", \"items\": [{\"index\": 1, \"name\": \"i\"}]}");
+
+    // when
+    ResultActions result = mockMvc.perform(request).andDo(print());
+
+    // then
+    result.andExpect(status().isOk());
+  }
+
+  @Test
+  void when_list_assets_should_return_bad_request_given_not_valid_key() throws Exception {
+    // given
+    RequestBuilder request = get("/assets?key=T-123")
+        .contentType(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8");
 
     // when
     ResultActions result = mockMvc.perform(request).andDo(print());

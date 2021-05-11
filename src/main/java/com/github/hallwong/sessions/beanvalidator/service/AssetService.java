@@ -10,14 +10,9 @@ import com.github.hallwong.sessions.beanvalidator.dto.response.AssetResponse;
 import com.github.hallwong.sessions.beanvalidator.error.BlankNameException;
 import com.github.hallwong.sessions.beanvalidator.error.EmptyItemsException;
 import com.github.hallwong.sessions.beanvalidator.error.ExpirationDateEarlyThanEffectiveDateException;
-import com.github.hallwong.sessions.beanvalidator.error.InvalidAssetKeyException;
-import com.github.hallwong.sessions.beanvalidator.error.NotValidDoubleException;
-import com.github.hallwong.sessions.beanvalidator.error.NullEffectiveDateException;
 import com.github.hallwong.sessions.beanvalidator.error.NullIndexException;
-import com.github.hallwong.sessions.beanvalidator.error.TooHeavyException;
 import com.github.hallwong.sessions.beanvalidator.error.UnsortedItemsException;
 import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
@@ -27,16 +22,11 @@ public class AssetService {
   private static final Pattern ASSET_KEY_PATTERN = Pattern.compile("(DSC-\\d{4}|OPT-\\d{5})");
 
   public List<AssetResponse> list(String key) {
-    if (key != null && !key.trim().isEmpty()) {
-      validateKey(key);
-    }
     // implement of reading from the storage
     return emptyList();
   }
 
   public AssetResponse create(AssetCreateRequest request) {
-    validateKey(request.getKey());
-    validateWeight(request);
     validateDates(request);
     validateItems(request);
 
@@ -50,31 +40,9 @@ public class AssetService {
         .build();
   }
 
-  private void validateKey(String key) {
-    Matcher matcher = ASSET_KEY_PATTERN.matcher(key);
-    if (!matcher.matches()) {
-      throw new InvalidAssetKeyException();
-    }
-  }
-
   private void validateDates(AssetCreateRequest request) {
-    if (request.getEffectiveDate() == null) {
-      throw new NullEffectiveDateException();
-    } else if (request.getExpirationDate().isBefore(request.getEffectiveDate())) {
+    if (request.getExpirationDate().isBefore(request.getEffectiveDate())) {
       throw new ExpirationDateEarlyThanEffectiveDateException();
-    }
-  }
-
-  private void validateWeight(AssetCreateRequest request) {
-    Double weight = request.getWeight();
-    if (weight != null) {
-      if (weight > 450) {
-        throw new TooHeavyException();
-      }
-      String fractionPart = Double.toString(weight).split("\\.")[1];
-      if (fractionPart.length() > 2) {
-        throw new NotValidDoubleException();
-      }
     }
   }
 

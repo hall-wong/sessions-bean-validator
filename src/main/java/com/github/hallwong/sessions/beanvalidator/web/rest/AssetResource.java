@@ -5,6 +5,7 @@ import com.github.hallwong.sessions.beanvalidator.dto.response.AssetResponse;
 import com.github.hallwong.sessions.beanvalidator.service.AssetService;
 import java.util.List;
 import javax.validation.Valid;
+import javax.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,7 +24,11 @@ public class AssetResource {
   private final AssetService service;
 
   @GetMapping
-  public List<AssetResponse> list(@RequestParam(name = "key", required = false) String key) {
+  public List<AssetResponse> list(
+      @Valid
+      @Pattern(regexp = "(DSC-\\d{4}|OPT-\\d{5})", message = "The asset key is invalid.")
+      @RequestParam(name = "key", required = false)
+          String key) {
     return service.list(key);
   }
 
