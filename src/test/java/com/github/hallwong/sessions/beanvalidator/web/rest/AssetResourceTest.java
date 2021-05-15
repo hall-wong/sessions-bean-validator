@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Locale;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,7 @@ import org.springframework.test.web.servlet.RequestBuilder;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.filter.CharacterEncodingFilter;
 
 @ActiveProfiles(profiles = "test")
 @SpringBootTest
@@ -28,7 +30,10 @@ class AssetResourceTest {
 
   @BeforeEach
   void setup() {
-    this.mockMvc = MockMvcBuilders.webAppContextSetup(this.wac).build();
+    this.mockMvc = MockMvcBuilders.webAppContextSetup(this.wac)
+        .addFilter(new CharacterEncodingFilter("utf8", true))
+        .build();
+    Locale.setDefault(Locale.ENGLISH);
   }
 
   @Test
@@ -109,6 +114,24 @@ class AssetResourceTest {
   }
 
   @Test
+  void when_create_asset_should_return_bad_request_given_exp_date_before_eff_date_in_cn()
+      throws Exception {
+    // given
+    RequestBuilder request = post("/assets")
+        .contentType(MediaType.APPLICATION_JSON)
+        .header("Accept-Language", "zh-CN")
+        .characterEncoding("UTF-8")
+        .content(
+            "{\"key\": \"DSC-1323\", \"effectiveDate\": \"2020-12-21\", \"expirationDate\": \"2011-12-21\"}");
+
+    // when
+    ResultActions result = mockMvc.perform(request).andDo(print());
+
+    // then
+    result.andExpect(status().isBadRequest());
+  }
+
+  @Test
   void when_create_asset_should_return_ok_given_exp_date_not_before_eff_date()
       throws Exception {
     // given
@@ -123,6 +146,37 @@ class AssetResourceTest {
 
     // then
     result.andExpect(status().isOk());
+  }
+
+  @Test
+  void when_create_asset_should_return_bad_request_given_all_null_value_item() throws Exception {
+    // given
+    RequestBuilder request = post("/assets")
+        .contentType(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8")
+        .content("{\"items\": [{}]}");
+
+    // when
+    ResultActions result = mockMvc.perform(request).andDo(print());
+
+    // then
+    result.andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void when_create_asset_should_return_bad_request_given_items_not_in_ascending() throws Exception {
+    // given
+    RequestBuilder request = post("/assets")
+        .contentType(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8")
+        .content(
+            "{\"key\": \"DSC-1323\", \"effectiveDate\": \"2020-12-21\", \"items\": [{\"index\": 12, \"name\": \"i\"}, {\"index\": 1, \"name\": \"m\"}]}");
+
+    // when
+    ResultActions result = mockMvc.perform(request).andDo(print());
+
+    // then
+    result.andExpect(status().isBadRequest());
   }
 
   @Test

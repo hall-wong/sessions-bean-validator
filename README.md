@@ -1,136 +1,169 @@
-## 继续我们的工作
+## 新的需求
 
-现在，我已经将大部分校验逻辑改为Bean Validation中的内置约束实现，但是对于一些复杂的校验逻辑，内置的约束没有办法处理，这时候就需要我们自行定义约束来满足校验逻辑。
+现在，我们已经将所有的校验逻辑都改为Bean Validation来实现。这时候产品经理觉得对于`@ExpirationDateConstraint`约束的文本信息过于简单了，希望可以将`effectiveDate`和`expirationDate`展示在文本中，同时说明是否允许`expirationDate`与`effectiveDate`相同。文本如下：
 
-在Bean Validation中，约束需要搭配**校验器**（Validator）来使用。一个约束由于被校验的数据可能存在不同的数据类型，所以一个约束可以指定至少一个或多个校验器。一个校验器只会校验一种类型是否满足一个约束。
+当不允许相同时：
 
-### 自定义约束
+```
+The expirationDate[2011-12-21] should not be early than or equal to the effectiveDate[2020-12-21].
+```
 
-在Bean Validation中，约束是以Java注解（annotation）存在的，因此约束可以很方便清晰表述一个POJO的校验逻辑。如果我们想要自定义约束，那么也是从一个简单的注解开始，以内置的`@NotNull`约束为例：
+当允许相同时：
+
+```
+The expirationDate[2011-12-21] should not be early than the effectiveDate[2020-12-21].
+```
+
+同时客户希望不同地区的客户端在遇到校验无法通过时，违例信息要用客户端所使用的语言来展示，也就是常说的国际化（Internationalization）。中文文本如下：
+
+当不允许相同时：
+
+```
+过期时间[2011-12-21]不能在生效时间[2020-12-21]之前或当天。
+```
+
+当允许相同时：
+
+```
+过期时间[2011-12-21]不能在生效时间[2020-12-21]之前。
+```
+
+
+
+## 文本渲染（Message interpolation）
+
+熟悉Java的小伙伴可能会比较清楚，在Java中实现国际化，我们会在需要国际化文本的地方定义一个文本键（message key），当程序运行到这里时，程序会根据上下文中的地区信息`Locale`加载对应地区的资源文件，并按照给定的文本键在该资源文件中搜索对应的文本资源并展示。
+
+但是对于异常信息，比如校验异常，往往我们希望可以获得更多信息，例如被校验值。甚至一些表达式功能，比如当约束中的某个属性为特定值时就展示特定的文本。因此Bean Validation提供了文本渲染的功能来满足此类需求。
+
+*注：interpolation直译为**插值**，是离散数学中的一个概念，指根据两个相邻的元素推导出中间元素的值。为了方便理解，我意译为**渲染**。*
+
+### 文本描述符（Message descriptor）
+
+文本描述符就是之前定义在约束`message`参数中的值，正如之前提到的：
+
+> 这个参数可以接受字符串常量，也可以接受表达式。对于字符串常量，Bean Validation会直接展示；对于表达式，Bean Validation会在其国际化上下文中搜索相应的结果并渲染
+
+文本描述符可以包含零个或多个表达式，表达式是指被`{}`或`${}`嵌套的文本。Bean Validation会文本描述符递归解析直到不再含有表达式。在表达式文本中，`{`、`}`、`$`和`\`是关键字，需要时通过`\`转义。
+
+Bean Validation会优先从上下文和国际化文本资源中渲染`{}`表达式，这一步只是简单的文本替换。当所有的`{}`表达式被渲染完后，在使用[Java EL](https://jcp.org/en/jsr/detail?id=341)渲染`${}`表达式，在这一步中，表达式中变量将会被替换，并完成表达式的计算，然后将得到的计算结果渲染到文本中。
+
+也就是说，Bean Validation对`{}`的解析要优先于`${}`，如果`{message}`可以被解析成`value`，那么`${message}`会被解析成`$value`，而不是`value`。
+
+除了国际化文本资源外，Bean Validation还会将一些属性放入上下文中，以供渲染时使用：
+
+1. 约束中的各个属性，按属性名添加到上下文中，可以被`{}`表达式解析；
+2. 被校验的值，按`validatedValue`的名字，添加到上下文中。只会被`${}`表达式解析；
+3. 一个内置的实例对象`formatter`，提供一个文本格式化方法`format(String format, Object... args)`，具体使用方法请参考`java.util.Formatter.format(String format, Object... args)`。只会被`${}`表达式解析；
+
+#### 小例子
+
+以`@Max`约束为例：
 
 ```java
-// ... @Target & @Retention
-@Constraint(validatedBy = { })
-public @interface NotNull {
+public class AssetCreateRequest {
+// ...
+  @Max(450)
+  private Double weight;
+// ...
+}
+```
 
-	String message() default "{javax.validation.constraints.NotNull.message}";
+它的文本描述符是`{javax.validation.constraints.Size.message}`：
 
-	Class<?>[] groups() default { };
+```java
+public @interface Max {
 
-	Class<? extends Payload>[] payload() default { };
+ String message() default "{javax.validation.constraints.Max.message}";
+//...more attributes
+}
+```
+在第一轮解析中，Bean Validation在国际化资源文件中找到了对应的文本：
+```properties
+javax.validation.constraints.Max.message             = must be less than or equal to {value}
+```
+
+发现其中还有`{}`表达式，再进行解析，在上下文中找到了约束中的属性`value`，以此替换`{value}`，最终得到：
+
+```
+must be less than or equal to 450
+```
+
+更详细的文本渲染使用方法，请参考[官方文档](https://beanvalidation.org/2.0/spec/#validationapi-message)。
+
+## 自定义约束文本
+
+首先，我们需要自定义文本国际化资源文件：`violation.properties`和`violation_zh.properties`；
+
+然后，定义一个Spring配置类，加载这些资源文件到Spring上下文中：
+
+```java
+@Configuration
+public class ValidationConfig {
+
+  @Bean
+  public MessageSource messageSource() {
+    ReloadableResourceBundleMessageSource messageSource
+        = new ReloadableResourceBundleMessageSource();
+
+    messageSource.setBasename("classpath:violation");
+    messageSource.setDefaultEncoding("UTF-8");
+    return messageSource;
+  }
+
+  @Bean
+  public LocalValidatorFactoryBean validatorFactoryBean() {
+    LocalValidatorFactoryBean bean = new LocalValidatorFactoryBean();
+    bean.setValidationMessageSource(messageSource());
+    return bean;
+  }
 
 }
 ```
 
-可以看到这个`@NotNull`注解被`@Constraint`注解标记了，这表明了`@NotNull`注解是Bean Validation中的一个约束了。`@Constraint`中的`validatedBy`属性指明了这个约束所有的校验器。在`@NotNull`这个例子里，这个列表是空，是为了各个厂商实现，hibernate在[这里](https://github.com/hibernate/hibernate-validator/blob/22620adef18f43f23a1c5d0e1faced68f25af550/engine/src/main/java/org/hibernate/validator/internal/metadata/core/ConstraintHelper.java#L615)做了hack。
+然后，重写`@ExpirationDateConstraint`的文本描述符，按照官方推荐的方式：
 
-同时，一个约束必须要有以下三个属性，否则启动会抛出`HV000074`的错误：
-
-* message：我们上节有说过，当约束不满足时展示的文本信息，hibernate建议配置为类的全路径名加上`.message`，为了方便国际化文本管理，我们在本节将直接输入异常信息。我们会在之后章节中单独讲解国际化；
-* groups：用于指定分组信息，默认可以为空。我们会在之后章节中单独讲解；
-* payload：便于扩展，默认可以为空。我们会在之后章节中单独讲解；
-
-### 编写校验器
-
-在Bean Validation中，校验器必须是`ConstraintValidator`的实现类，`ConstraintValidator`是一个接口，包含了两个方法，两个泛型：
+> 建议配置为类的全路径名加上`.message`
 
 ```java
-public interface ConstraintValidator<A extends Annotation, T> {
+public @interface ExpirationDateConstraint {
 
-	default void initialize(A constraintAnnotation) {
-	}
-
-	boolean isValid(T value, ConstraintValidatorContext context);
-  
+  String message() default "{com.github.hallwong.sessions.beanvalidator.dto.constraints.ExpirationDateConstraint.message}";
+// ...
 }
 ```
 
-两个方法：
+最后，在资源文件中，写入对应的文本：
 
-* initialize：根据注解中的属性来初始化校验器，可以不实现；
-* isValid：判断数据是否满足约束的逻辑，需要实现；
+`violation.properties`：
 
-两个泛型：
-
-* A：约束的注解类型；
-* T：被校验数据的类型；
-
-还是以`@NotNull`约束的校验器为例：
-
-```java
-public class NotNullValidator implements ConstraintValidator<NotNull, Object> {
-
-	@Override
-	public boolean isValid(Object object, ConstraintValidatorContext constraintValidatorContext) {
-		return object != null;
-	}
-
-}
+```properties
+com.github.hallwong.sessions.beanvalidator.dto.constraints.ExpirationDateConstraint.message=\
+  The expirationDate[${validatedValue.expirationDate}] should not be early than \
+  ${!allowEqualToEffectiveDate?'or equal to ':''}the effectiveDate[${validatedValue.effectiveDate}].
 ```
 
-可以看到在这个校验器里，泛型A为`@NotNull`注解，泛型T为`Object`，也就是任何类型。这个校验器只实现了`isValid`方法。
+`violation_zh.properties`：
+
+```properties
+com.github.hallwong.sessions.beanvalidator.dto.constraints.ExpirationDateConstraint.message=\
+  过期时间[${validatedValue.expirationDate}]不能在生效时间[${validatedValue.effectiveDate}]\
+  之前${!allowEqualToEffectiveDate?'或当天':''}。
+```
 
 ## 动手练习
 
-在我们的代码中，对于`AssetCreateRequest`中的`expirationDate`属性校验是比较复杂，需要比较`effectiveDate`。我们可以自定一个约束和校验器，来校验`expirationDate`是否满足约束：
-
-```java
-@Target(TYPE)
-@Retention(RUNTIME)
-@Constraint(validatedBy = ExpirationDateValidator.class)
-public @interface ExpirationDateConstraint {
-
-  String message() default "The expiration date must be after effective date.";
-
-  Class<?>[] groups() default {};
-
-  Class<? extends Payload>[] payload() default {};
-
-  boolean allowEqualToEffectiveDate() default false;
-
-}
-```
-
-可以看到，在这个约束中，有一个自定义的属性`allowEqualToEffectiveDate`，用于定义`expirationDate`是否可以与`effectiveDate`相等。
-
-```java
-public class ExpirationDateValidator implements
-    ConstraintValidator<ExpirationDateConstraint, AssetCreateRequest> {
-
-  private boolean allowEqualToEffectiveDate;
-
-  @Override
-  public void initialize(ExpirationDateConstraint constraintAnnotation) {
-    allowEqualToEffectiveDate = constraintAnnotation.allowEqualToEffectiveDate();
-  }
-
-  @Override
-  public boolean isValid(AssetCreateRequest value, ConstraintValidatorContext context) {
-    if (value == null) {
-      return true;
-    }
-    LocalDate effectiveDate = value.getEffectiveDate();
-    if (effectiveDate == null) {
-      return true;
-    }
-    LocalDate expirationDate = value.getExpirationDate();
-    if (expirationDate == null) {
-      return true;
-    }
-    return allowEqualToEffectiveDate ?
-        !expirationDate.isBefore(effectiveDate) : expirationDate.isAfter(effectiveDate);
-  }
-
-}
-```
-
-可以看到在校验器初始化的时候，在`initialize`方法中，校验器会读取约束中`allowEqualToEffectiveDate`属性，并保持到自己的属性中。由此，我们可以推定，校验器的生命周期是从每个约束注解解析时创建开始，直到容器被销毁。
-
-而在实现校验器的`isValid`方法时候，如果遇到了`null`值，都会返回校验通过，至于为什么，可以回顾下上节的思考题。
+运行测试，更改`AssetCreateRequest`中`@ExpirationDateConstraint`约束的属性`allowEqualToEffectiveDate`值，观察测试`when_create_asset_should_return_bad_request_given_exp_date_before_eff_date`与`when_create_asset_should_return_bad_request_given_exp_date_before_eff_date_in_cn`文本的变化。
 
 ## 本节结束
 
-好了，本节到此结束，本节内容主要是展示了通过`@Constraint`将一个注解转化成Bean Validation的约束，以及必须要定义的属性：`message`、`groups`和`payload`。还展示了约束必须关联的校验器所要实现的接口`ConstraintValidator`。
+好了，本节到此结束，本节内容主要是展示了Bean Validation如何通过两种不同的表达式渲染文本的。
 
-下一节将会讲到如何国际化文本信息，请切换到`05_text_internationalization`分支继续下一节。
+下一节将会讲到约束中另外一个属性`groups`，请切换到`06_groups`分支继续下一节。
+
+
+
+
+
+
 
