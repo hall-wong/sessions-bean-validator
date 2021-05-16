@@ -16,7 +16,7 @@ import lombok.Data;
 @ExpirationDateConstraint(allowEqualToEffectiveDate = true)
 public class AssetCreateRequest {
 
-  @NotNull(message = "The asset key must not be null.")
+  @NotNull
   @AssetKeyConstraint
   private String key;
 
@@ -26,7 +26,7 @@ public class AssetCreateRequest {
   @Digits(integer = Integer.MAX_VALUE, fraction = 2, message = "Only 2 digits are allowed after the decimal point.")
   private Double weight;
 
-  @NotNull(message = "The effective date must not be null.")
+  @NotNull
   private LocalDate effectiveDate;
 
   private LocalDate expirationDate;

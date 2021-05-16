@@ -1,165 +1,155 @@
 ## 新的需求
 
-现在，我们已经将所有的校验逻辑都改为Bean Validation来实现。这时候产品经理觉得对于`@ExpirationDateConstraint`约束的文本信息过于简单了，希望可以将`effectiveDate`和`expirationDate`展示在文本中，同时说明是否允许`expirationDate`与`effectiveDate`相同。文本如下：
+随着业务的扩展，我们系统里身份越来越多，在创建Asset时，会有两种身份：一种是管理员，另一种是普通用户，通过请求头部中的`Authorization`字段里的值进行区分。当普通用户创建Asset时，不可以填入`items`属性，而当是管理员时，则这个字段不能为空（跟之前一致）。
 
-当不允许相同时：
+## 按组（Group）校验
 
-```
-The expirationDate[2011-12-21] should not be early than or equal to the effectiveDate[2020-12-21].
-```
+很多情况下，我们可能需要对同一个类，甚至同一个接口中的同一个参数按照不同的分组进行校验。很显然，在新的需求中，对于创建资产的接口，会根据用户的身份，分成两个组：管理员组和普通用户组。在校验`AssetCreateRequest`时，对于`items`属性，管理员组要满足`@NotEmpty`约束，普通用户组要满足`@Null`约束。而对于其他属性，还是与之前的校验逻辑一致。
 
-当允许相同时：
+### `groups`属性
 
-```
-The expirationDate[2011-12-21] should not be early than the effectiveDate[2020-12-21].
-```
+我们可以在使用约束注解时，通过`groups`属性，定义这个约束属于哪个组。
 
-同时客户希望不同地区的客户端在遇到校验无法通过时，违例信息要用客户端所使用的语言来展示，也就是常说的国际化（Internationalization）。中文文本如下：
+```java
+public class AssetCreateRequest {
 
-当不允许相同时：
-
-```
-过期时间[2011-12-21]不能在生效时间[2020-12-21]之前或当天。
+  @NotNull
+  @AssetKeyConstraint(groups = CustomGroup.class)
+  private String key;
+// ...
+}
 ```
 
-当允许相同时：
+在上面的例子中，可以看到`@AssetKeyConstraint`约束是属于`CustomGroup`组的，而`@NotNull`约束没有指定组，那么Bean Validation会为它分配一个默认组：`javax.validation.groups.Default`。那么在校验时，如果没有指明校验组（也是默认使用`javax.validation.groups.Default`）或指明的组中包含`javax.validation.groups.Default`，那么就会检查`key`是否符合`@NotNull`约束。如果的指明的组中不包含`CustomGroup`，那么就不会校验`key`是否符合`@AssetKeyConstraint`约束。
 
+### 创建组
+
+在Bean Validation中，组必须是一个接口，否则抛出`HV000045`异常。
+
+按照新的需求，创建两个组：
+
+```java
+public interface AssetCreateAdmin {
+
+}
 ```
-过期时间[2011-12-21]不能在生效时间[2020-12-21]之前。
+
+```java
+public interface AssetCreateUser {
+
+}
 ```
 
+### 设置组到约束上
 
-
-## 文本渲染（Message interpolation）
-
-熟悉Java的小伙伴可能会比较清楚，在Java中实现国际化，我们会在需要国际化文本的地方定义一个文本键（message key），当程序运行到这里时，程序会根据上下文中的地区信息`Locale`加载对应地区的资源文件，并按照给定的文本键在该资源文件中搜索对应的文本资源并展示。
-
-但是对于异常信息，比如校验异常，往往我们希望可以获得更多信息，例如被校验值。甚至一些表达式功能，比如当约束中的某个属性为特定值时就展示特定的文本。因此Bean Validation提供了文本渲染的功能来满足此类需求。
-
-*注：interpolation直译为**插值**，是离散数学中的一个概念，指根据两个相邻的元素推导出中间元素的值。为了方便理解，我意译为**渲染**。*
-
-### 文本描述符（Message descriptor）
-
-文本描述符就是之前定义在约束`message`参数中的值，正如之前提到的：
-
-> 这个参数可以接受字符串常量，也可以接受表达式。对于字符串常量，Bean Validation会直接展示；对于表达式，Bean Validation会在其国际化上下文中搜索相应的结果并渲染
-
-文本描述符可以包含零个或多个表达式，表达式是指被`{}`或`${}`嵌套的文本。Bean Validation会文本描述符递归解析直到不再含有表达式。在表达式文本中，`{`、`}`、`$`和`\`是关键字，需要时通过`\`转义。
-
-Bean Validation会优先从上下文和国际化文本资源中渲染`{}`表达式，这一步只是简单的文本替换。当所有的`{}`表达式被渲染完后，在使用[Java EL](https://jcp.org/en/jsr/detail?id=341)渲染`${}`表达式，在这一步中，表达式中变量将会被替换，并完成表达式的计算，然后将得到的计算结果渲染到文本中。
-
-也就是说，Bean Validation对`{}`的解析要优先于`${}`，如果`{message}`可以被解析成`value`，那么`${message}`会被解析成`$value`，而不是`value`。
-
-除了国际化文本资源外，Bean Validation还会将一些属性放入上下文中，以供渲染时使用：
-
-1. 约束中的各个属性，按属性名添加到上下文中，可以被`{}`表达式解析；
-2. 被校验的值，按`validatedValue`的名字，添加到上下文中。只会被`${}`表达式解析；
-3. 一个内置的实例对象`formatter`，提供一个文本格式化方法`format(String format, Object... args)`，具体使用方法请参考`java.util.Formatter.format(String format, Object... args)`。只会被`${}`表达式解析；
-
-#### 小例子
-
-以`@Max`约束为例：
+根据业务的需要，对`items`属性上的约束做出如下调整：
 
 ```java
 public class AssetCreateRequest {
 // ...
-  @Max(450)
-  private Double weight;
-// ...
+  @Valid
+  @Null(groups = AssetCreateUser.class)
+  @NotEmpty(groups = AssetCreateAdmin.class)
+  @AscendingCollectionConstraint
+  private List<AssetItemCreateRequest> items;
+
 }
 ```
 
-它的文本描述符是`{javax.validation.constraints.Size.message}`：
+### 按组校验
 
-```java
-public @interface Max {
+虽然Spring提供了`Validated`注解，可以在其中输入分组信息。但是这只能提供静态的按组查询，但往往在实际工作中，我们更需要动态的按组查询，所以为了满足新的需求，我们需要对Spring的Validation AOP组件进行一定的改造。
 
- String message() default "{javax.validation.constraints.Max.message}";
-//...more attributes
-}
-```
-在第一轮解析中，Bean Validation在国际化资源文件中找到了对应的文本：
-```properties
-javax.validation.constraints.Max.message             = must be less than or equal to {value}
-```
-
-发现其中还有`{}`表达式，再进行解析，在上下文中找到了约束中的属性`value`，以此替换`{value}`，最终得到：
-
-```
-must be less than or equal to 450
-```
-
-更详细的文本渲染使用方法，请参考[官方文档](https://beanvalidation.org/2.0/spec/#validationapi-message)。
-
-## 自定义约束文本
-
-首先，我们需要自定义文本国际化资源文件：`violation.properties`和`violation_zh.properties`；
-
-然后，定义一个Spring配置类，加载这些资源文件到Spring上下文中：
+首先，创建一个`MethodValidationPostProcessor`，放入Spring上下文中。Spring通过`MethodValidationPostProcessor`来达到校验功能，可以参考下`ValidationAutoConfiguration#methodValidationPostProcessor`的实现。
 
 ```java
 @Configuration
 public class ValidationConfig {
-
+// ...
   @Bean
-  public MessageSource messageSource() {
-    ReloadableResourceBundleMessageSource messageSource
-        = new ReloadableResourceBundleMessageSource();
-
-    messageSource.setBasename("classpath:violation");
-    messageSource.setDefaultEncoding("UTF-8");
-    return messageSource;
-  }
-
-  @Bean
-  public LocalValidatorFactoryBean validatorFactoryBean() {
-    LocalValidatorFactoryBean bean = new LocalValidatorFactoryBean();
-    bean.setValidationMessageSource(messageSource());
-    return bean;
+  public static MethodValidationPostProcessor customMethodValidationPostProcessor(
+      Environment environment, @Lazy Validator validator,
+      ObjectProvider<MethodValidationExcludeFilter> excludeFilters) {
+    FilteredMethodValidationPostProcessor processor =
+        new CustomMethodValidationPostProcessor(excludeFilters.orderedStream());
+    processor.setValidatedAnnotationType(RestController.class);
+    boolean proxyTargetClass = environment
+        .getProperty("spring.aop.proxy-target-class", Boolean.class, true);
+    processor.setProxyTargetClass(proxyTargetClass);
+    processor.setValidator(validator);
+    return processor;
   }
 
 }
 ```
 
-然后，重写`@ExpirationDateConstraint`的文本描述符，按照官方推荐的方式：
-
-> 建议配置为类的全路径名加上`.message`
+*注意：这里的`validationAnnotationType`设置为`RestController`，这意味我们会校验被`@RestController`注解标记的类下的方法，而不是`@Validated`。*
 
 ```java
-public @interface ExpirationDateConstraint {
+public class CustomMethodValidationPostProcessor extends FilteredMethodValidationPostProcessor {
 
-  String message() default "{com.github.hallwong.sessions.beanvalidator.dto.constraints.ExpirationDateConstraint.message}";
-// ...
+  public CustomMethodValidationPostProcessor(Stream<MethodValidationExcludeFilter> orderedStream) {
+    super(orderedStream);
+  }
+
+  @Override
+  protected Advice createMethodValidationAdvice(Validator validator) {
+    return validator != null ?
+        new CustomMethodValidationInterceptor(validator) : new CustomMethodValidationInterceptor();
+  }
+
 }
 ```
 
-最后，在资源文件中，写入对应的文本：
+然后创建一个`MethodValidationInterceptor`，作为Validation AOP的advice：
 
-`violation.properties`：
+```java
+public class CustomMethodValidationInterceptor extends MethodValidationInterceptor {
 
-```properties
-com.github.hallwong.sessions.beanvalidator.dto.constraints.ExpirationDateConstraint.message=\
-  The expirationDate[${validatedValue.expirationDate}] should not be early than \
-  ${!allowEqualToEffectiveDate?'or equal to ':''}the effectiveDate[${validatedValue.effectiveDate}].
+  public CustomMethodValidationInterceptor() {
+    this(Validation.buildDefaultValidatorFactory().getValidator());
+  }
+
+  public CustomMethodValidationInterceptor(Validator validator) {
+    super(validator);
+  }
+
+  @Override
+  protected Class<?>[] determineValidationGroups(MethodInvocation invocation) {
+    HttpServletRequest request = (HttpServletRequest) RequestContextHolder
+        .currentRequestAttributes()
+        .resolveReference(RequestAttributes.REFERENCE_REQUEST);
+    if (request == null) {
+      return new Class<?>[0];
+    }
+    String auth = request.getHeader(HttpHeaders.AUTHORIZATION);
+    if ("admin".equalsIgnoreCase(auth)) {
+      return new Class<?>[]{AssetCreateAdmin.class, Default.class};
+    } else if ("user".equalsIgnoreCase(auth)) {
+      return new Class<?>[]{AssetCreateUser.class, Default.class};
+    } else {
+      return new Class<?>[0];
+    }
+  }
+
+}
 ```
 
-`violation_zh.properties`：
+在这里，我们只需要重写覆盖掉`determineValidationGroups`方法即可，在Spring的实现中，会从`@Validated`注解中读取组信息，这里我们替换成自己的逻辑：从请求头中读取身份信息并设置组信息。
 
-```properties
-com.github.hallwong.sessions.beanvalidator.dto.constraints.ExpirationDateConstraint.message=\
-  过期时间[${validatedValue.expirationDate}]不能在生效时间[${validatedValue.effectiveDate}]\
-  之前${!allowEqualToEffectiveDate?'或当天':''}。
-```
+值得注意的是，当身份类型为管理员或普通用户时，除了要返回对应的组外，还要返回默认的组`Default`，否则校验时将会忽略没有指明组的约束。
 
-## 动手练习
+### 动手练习
 
-运行测试，更改`AssetCreateRequest`中`@ExpirationDateConstraint`约束的属性`allowEqualToEffectiveDate`值，观察测试`when_create_asset_should_return_bad_request_given_exp_date_before_eff_date`与`when_create_asset_should_return_bad_request_given_exp_date_before_eff_date_in_cn`文本的变化。
+运行测试，测试`when_create_asset_should_return_bad_request_given_not_null_items_and_user_auth`应该是通过。
 
 ## 本节结束
 
-好了，本节到此结束，本节内容主要是展示了Bean Validation如何通过两种不同的表达式渲染文本的。
+好了，本节到此结束，本节内容主要是展示了通过`groups`参数调整校验时的策略，还展示了如何自定义Spring的Validation AOP，以更符合我们的业务需求。
 
-下一节将会讲到约束中另外一个属性`groups`，请切换到`06_groups`分支继续下一节。
+
+下一节将会讲到约束中另外一个属性`payload`，请切换到`07_payload`分支继续下一节。
+
 
 
 

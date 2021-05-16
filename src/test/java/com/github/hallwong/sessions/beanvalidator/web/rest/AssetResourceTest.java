@@ -41,6 +41,7 @@ class AssetResourceTest {
     // given
     RequestBuilder request = post("/assets")
         .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "admin")
         .characterEncoding("UTF-8")
         .content("{}");
 
@@ -56,6 +57,7 @@ class AssetResourceTest {
     // given
     RequestBuilder request = post("/assets")
         .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "admin")
         .characterEncoding("UTF-8")
         .content("{\"key\": \"T-123\"}");
 
@@ -71,6 +73,7 @@ class AssetResourceTest {
     // given
     RequestBuilder request = post("/assets")
         .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "admin")
         .characterEncoding("UTF-8")
         .content("{\"key\": \"DSC-1323\", \"weight\": 500}");
 
@@ -86,6 +89,7 @@ class AssetResourceTest {
     // given
     RequestBuilder request = post("/assets")
         .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "admin")
         .characterEncoding("UTF-8")
         .content("{\"key\": \"DSC-1323\", \"weight\": 123.232}");
 
@@ -102,6 +106,7 @@ class AssetResourceTest {
     // given
     RequestBuilder request = post("/assets")
         .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "admin")
         .characterEncoding("UTF-8")
         .content(
             "{\"key\": \"DSC-1323\", \"effectiveDate\": \"2020-12-21\", \"expirationDate\": \"2011-12-21\"}");
@@ -120,6 +125,7 @@ class AssetResourceTest {
     RequestBuilder request = post("/assets")
         .contentType(MediaType.APPLICATION_JSON)
         .header("Accept-Language", "zh-CN")
+        .header("Authorization", "admin")
         .characterEncoding("UTF-8")
         .content(
             "{\"key\": \"DSC-1323\", \"effectiveDate\": \"2020-12-21\", \"expirationDate\": \"2011-12-21\"}");
@@ -137,6 +143,7 @@ class AssetResourceTest {
     // given
     RequestBuilder request = post("/assets")
         .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "admin")
         .characterEncoding("UTF-8")
         .content(
             "{\"key\": \"DSC-1323\", \"effectiveDate\": \"2020-12-21\", \"expirationDate\": \"2020-12-21\", \"items\": [{\"index\": 1, \"name\": \"i\"}]}");
@@ -153,6 +160,7 @@ class AssetResourceTest {
     // given
     RequestBuilder request = post("/assets")
         .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "admin")
         .characterEncoding("UTF-8")
         .content("{\"items\": [{}]}");
 
@@ -168,9 +176,28 @@ class AssetResourceTest {
     // given
     RequestBuilder request = post("/assets")
         .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "admin")
         .characterEncoding("UTF-8")
         .content(
             "{\"key\": \"DSC-1323\", \"effectiveDate\": \"2020-12-21\", \"items\": [{\"index\": 12, \"name\": \"i\"}, {\"index\": 1, \"name\": \"m\"}]}");
+
+    // when
+    ResultActions result = mockMvc.perform(request).andDo(print());
+
+    // then
+    result.andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void when_create_asset_should_return_bad_request_given_not_null_items_and_user_auth()
+      throws Exception {
+    // given
+    RequestBuilder request = post("/assets")
+        .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "user")
+        .characterEncoding("UTF-8")
+        .content(
+            "{\"key\": \"DSC-1323\", \"effectiveDate\": \"2020-12-21\", \"items\": [{\"index\": 1, \"name\": \"i\"}, {\"index\": 2, \"name\": \"m\"}]}");
 
     // when
     ResultActions result = mockMvc.perform(request).andDo(print());
@@ -184,6 +211,7 @@ class AssetResourceTest {
     // given
     RequestBuilder request = get("/assets?key=T-123")
         .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "admin")
         .characterEncoding("UTF-8");
 
     // when

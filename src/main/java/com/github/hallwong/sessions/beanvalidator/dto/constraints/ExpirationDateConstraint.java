@@ -14,7 +14,7 @@ import javax.validation.Payload;
 @Constraint(validatedBy = ExpirationDateValidator.class)
 public @interface ExpirationDateConstraint {
 
-  String message() default "The expiration date must be after effective date.";
+  String message() default "{com.github.hallwong.sessions.beanvalidator.dto.constraints.ExpirationDateConstraint.message}";
 
   Class<?>[] groups() default {};
 
