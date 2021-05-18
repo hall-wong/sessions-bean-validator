@@ -1,9 +1,6 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '2.4.3'
 }
-apply plugin: 'org.springframework.boot'
-apply plugin: 'io.spring.dependency-management'
 
 group = 'com.github.hallwong.sessions.beanvalidator'
 version = '0.0.1'
@@ -13,27 +10,19 @@ repositories {
 }
 
 dependencies {
-    annotationProcessor("org.projectlombok:lombok")
-    compileOnly("org.projectlombok:lombok")
-
-    implementation("org.springframework.boot:spring-boot-starter-web")
-
-    // error handling
-    implementation("org.zalando:problem-spring-web:0.25.2")
+    annotationProcessor("org.projectlombok:lombok:1.18.18")
+    compileOnly("org.projectlombok:lombok:1.18.18")
 
     // validation
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-
-    // aop
-    implementation("org.springframework.boot:spring-boot-starter-aop")
+    implementation("javax.validation:validation-api:2.0.1.Final")
+    implementation("org.hibernate.validator:hibernate-validator:6.0.13.Final")
+    implementation("org.glassfish:javax.el:3.0.0")
 
     // test
-    testImplementation('org.springframework.boot:spring-boot-starter-test')
-    testImplementation("org.junit.jupiter:junit-jupiter-api")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.7.1")
 
 }
 
 test {
     useJUnitPlatform()
-    systemProperty('spring.profiles.active', 'test')
 }

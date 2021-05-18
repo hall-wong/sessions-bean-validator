@@ -5,9 +5,8 @@ import static java.util.Collections.emptyList;
 import com.github.hallwong.sessions.beanvalidator.dto.request.AssetCreateRequest;
 import com.github.hallwong.sessions.beanvalidator.dto.response.AssetResponse;
 import java.util.List;
-import org.springframework.stereotype.Service;
+import javax.validation.Valid;
 
-@Service
 public class AssetService {
 
   public List<AssetResponse> list(String key) {
@@ -15,7 +14,8 @@ public class AssetService {
     return emptyList();
   }
 
-  public AssetResponse create(AssetCreateRequest request) {
+  @Valid
+  public AssetResponse create(@Valid AssetCreateRequest request) {
     // implement of writing to the storage
     return AssetResponse.builder()
         .key(request.getKey())

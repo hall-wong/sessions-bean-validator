@@ -1,6 +1,7 @@
 package com.github.hallwong.sessions.beanvalidator.dto.response;
 
 import java.time.LocalDate;
+import javax.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.Data;
 
@@ -14,6 +15,7 @@ public class AssetResponse {
 
   private LocalDate effectiveDate;
 
+  @NotNull
   private LocalDate expirationDate;
 
   private Long createdAt;
