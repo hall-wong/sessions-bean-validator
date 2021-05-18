@@ -9,6 +9,7 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.zalando.problem.Problem;
 import org.zalando.problem.ProblemModule;
 import org.zalando.problem.spring.web.advice.ProblemHandling;
+import org.zalando.problem.violations.ConstraintViolationProblem;
 
 @Configuration
 public class ErrorHandlerConfig {
@@ -25,6 +26,9 @@ public class ErrorHandlerConfig {
     @Override
     public void log(Throwable throwable, Problem problem, NativeWebRequest request,
         HttpStatus status) {
+      if (ConstraintViolationProblem.TYPE.equals(problem.getType())) {
+        return;
+      }
       log.error("caught an error:", throwable);
     }
 

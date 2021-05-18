@@ -3,6 +3,8 @@ package com.github.hallwong.sessions.beanvalidator.dto.request;
 import com.github.hallwong.sessions.beanvalidator.dto.constraints.AscendingCollectionConstraint;
 import com.github.hallwong.sessions.beanvalidator.dto.constraints.AssetKeyConstraint;
 import com.github.hallwong.sessions.beanvalidator.dto.constraints.ExpirationDateConstraint;
+import com.github.hallwong.sessions.beanvalidator.dto.constraints.groups.AssetCreateAdmin;
+import com.github.hallwong.sessions.beanvalidator.dto.constraints.groups.AssetCreateUser;
 import java.time.LocalDate;
 import java.util.List;
 import javax.validation.Valid;
@@ -10,6 +12,7 @@ import javax.validation.constraints.Digits;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Null;
 import lombok.Data;
 
 @Data
@@ -32,7 +35,8 @@ public class AssetCreateRequest {
   private LocalDate expirationDate;
 
   @Valid
-  @NotEmpty
+  @Null(groups = AssetCreateUser.class)
+  @NotEmpty(groups = AssetCreateAdmin.class)
   @AscendingCollectionConstraint
   private List<AssetItemCreateRequest> items;
 

@@ -1,13 +1,22 @@
 package com.github.hallwong.sessions.beanvalidator.web.rest;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import com.github.hallwong.sessions.beanvalidator.conf.ErrorHandlerConfig.ErrorHandler;
+import com.github.hallwong.sessions.beanvalidator.validation.CustomMethodValidationInterceptor;
 import java.util.Locale;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -28,12 +37,35 @@ class AssetResourceTest {
 
   private MockMvc mockMvc;
 
+  private Logger errorHandlerLogger;
+  private ListAppender<ILoggingEvent> errorHandlerLoggerEvents;
+
+  private Logger validationAdviceLogger;
+  private ListAppender<ILoggingEvent> validationAdviceLoggerEvents;
+
   @BeforeEach
   void setup() {
     this.mockMvc = MockMvcBuilders.webAppContextSetup(this.wac)
         .addFilter(new CharacterEncodingFilter("utf8", true))
         .build();
     Locale.setDefault(Locale.ENGLISH);
+    errorHandlerLogger = (Logger) LoggerFactory.getLogger(ErrorHandler.class);
+    errorHandlerLoggerEvents = new ListAppender<>();
+    errorHandlerLoggerEvents.start();
+    errorHandlerLogger.addAppender(errorHandlerLoggerEvents);
+    validationAdviceLogger = (Logger) LoggerFactory
+        .getLogger(CustomMethodValidationInterceptor.class);
+    validationAdviceLoggerEvents = new ListAppender<>();
+    validationAdviceLoggerEvents.start();
+    validationAdviceLogger.addAppender(validationAdviceLoggerEvents);
+  }
+
+  @AfterEach
+  void destroy() {
+    errorHandlerLogger.detachAppender(errorHandlerLoggerEvents);
+    errorHandlerLoggerEvents.stop();
+    validationAdviceLogger.detachAppender(validationAdviceLoggerEvents);
+    validationAdviceLoggerEvents.stop();
   }
 
   @Test
@@ -217,6 +249,12 @@ class AssetResourceTest {
     // when
     ResultActions result = mockMvc.perform(request).andDo(print());
 
+    assertEquals(0, errorHandlerLoggerEvents.list.size());
+    assertEquals(1, validationAdviceLoggerEvents.list.size());
+    ILoggingEvent errorMessage = validationAdviceLoggerEvents.list.get(0);
+    assertEquals(Level.ERROR, errorMessage.getLevel());
+    assertEquals("Critical violation: The asset key is invalid.",
+        errorMessage.getFormattedMessage());
     // then
     result.andExpect(status().isBadRequest());
   }

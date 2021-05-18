@@ -5,6 +5,7 @@ import java.util.Collection;
 import javax.validation.ConstraintValidator;
 import javax.validation.ConstraintValidatorContext;
 
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class AscendingCollectionValidator implements
     ConstraintValidator<AscendingCollectionConstraint, Collection> {
 
